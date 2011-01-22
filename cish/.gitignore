@@ -1,0 +1,5 @@
+*.c
+*.o
+*.pbc
+/installable_cish
+src/gen_*.pir
