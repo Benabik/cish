@@ -7,30 +7,32 @@ This is the grammar for cish in Perl 6 rules.
 grammar cish::Grammar is HLL::Grammar;
 
 token TOP {
-    <statementlist>
+    <statement>*
     [ $ || <.panic: "Syntax error"> ]
 }
 
 ## Lexer items
 
-# This <ws> rule treats # as "comment to eol".
+# This <ws> rule treats /* this as a comment */
 token ws {
     <!ww>
-    [ '#' \N* \n? | \s+ ]*
+    [ '/*' .*? '*/' | \s+ ]*
 }
 
 ## Statements
 
-rule statementlist { [ <statement> | <?> ] ** ';' }
-
 rule statement {
-    | <statement_control>
-    | <EXPR>
+	<simple> ';'
 }
 
-proto token statement_control { <...> }
-rule statement_control:sym<say>   { <sym> [ <EXPR> ] ** ','  }
-rule statement_control:sym<print> { <sym> [ <EXPR> ] ** ','  }
+rule simple {
+	| <builtin>
+	| <EXPR>
+}
+
+proto token builtin { <...> }
+rule builtin:sym<say>   { <sym> [ <EXPR> ] ** ','  }
+rule builtin:sym<print> { <sym> [ <EXPR> ] ** ','  }
 
 ## Terms
 

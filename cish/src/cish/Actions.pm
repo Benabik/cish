@@ -1,26 +1,36 @@
 class cish::Actions is HLL::Actions;
 
-method TOP($/) {
-    make PAST::Block.new( $<statementlist>.ast , :hll<cish>, :node($/) );
+sub past_block($/, @statements) {
+	my $past := PAST::Block.new( $past, :blocktype<immediate>, :node($/) );
+	for @statements { $past.push( $_.ast ); }
+	return $past;
 }
 
-method statementlist($/) {
-    my $past := PAST::Stmts.new( :node($/) );
-    for $<statement> { $past.push( $_.ast ); }
-    make $past;
+method TOP($/) {
+	my $past := past_block($/, $<statement>);
+	$past.hll('cish');
+	make $past;
 }
 
 method statement($/) {
-    make $<statement_control> ?? $<statement_control>.ast !! $<EXPR>.ast;
+	make $<simple>.ast;
 }
 
-method statement_control:sym<say>($/) {
+method simple($/) {
+	if $<builtin> {
+		make $<builtin>.ast
+	} else {
+		make $<EXPR>.ast
+	}
+}
+
+method builtin:sym<say>($/) {
     my $past := PAST::Op.new( :name<say>, :pasttype<call>, :node($/) );
     for $<EXPR> { $past.push( $_.ast ); }
     make $past;
 }
 
-method statement_control:sym<print>($/) {
+method builtin:sym<print>($/) {
     my $past := PAST::Op.new( :name<print>, :pasttype<call>, :node($/) );
     for $<EXPR> { $past.push( $_.ast ); }
     make $past;
