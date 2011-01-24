@@ -47,14 +47,18 @@ token quote:sym<"> { <?["]> <quote_EXPR: ':qq'> }
 ## Operators
 
 INIT {
-    cish::Grammar.O(':prec<v>, :assoc<unary>',  '%unary');
-    cish::Grammar.O(':prec<u>, :assoc<left>',   '%multiplicative');
-    cish::Grammar.O(':prec<t>, :assoc<left>',   '%additive');
+    cish::Grammar.O(':prec<v>, :assoc<unary>', '%unary');
+    cish::Grammar.O(':prec<u>, :assoc<left>',  '%multiplicative');
+    cish::Grammar.O(':prec<t>, :assoc<left>',  '%additive');
+    cish::Grammar.O(':prec<s>, :assoc<left>',  '%comparison');
+    cish::Grammar.O(':prec<r>, :assoc<left>',  '%and');
+    cish::Grammar.O(':prec<q>, :assoc<left>',  '%or');
 }
 
 token circumfix:sym<( )> { '(' <.ws> <EXPR> ')' }
 
 token prefix:sym<-> { <sym> <O('%unary, :pirop<neg>')> }
+token prefix:sym<!> { <sym> <O('%unary, :pirop<not>')> }
 
 token infix:sym<%>  { <sym> <O('%multiplicative, :pirop<mod>')> }
 token infix:sym<*>  { <sym> <O('%multiplicative, :pirop<mul>')> }
@@ -62,3 +66,13 @@ token infix:sym</>  { <sym> <O('%multiplicative, :pirop<div>')> }
 
 token infix:sym<+>  { <sym> <O('%additive, :pirop<add>')> }
 token infix:sym<->  { <sym> <O('%additive, :pirop<sub>')> }
+
+token infix:sym('<' ) { <sym> <O('%comparison, :pirop<islt IPP>')> }
+token infix:sym('<=') { <sym> <O('%comparison, :pirop<isle IPP>')> }
+token infix:sym('==') { <sym> <O('%comparison, :pirop<iseq IPP>')> }
+token infix:sym('!=') { <sym> <O('%comparison, :pirop<isne IPP>')> }
+token infix:sym('>=') { <sym> <O('%comparison, :pirop<isge IPP>')> }
+token infix:sym('>' ) { <sym> <O('%comparison, :pirop<isgt IPP>')> }
+
+token infix:sym<&&> { <sym> <O('%and, :pirop<and PPP>')> }
+token infix:sym<||> { <sym> <O('%or,  :pirop<or  PPP>')> }
