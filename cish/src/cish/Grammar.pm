@@ -38,7 +38,7 @@ token term:sym<integer> { <integer> }
 token term:sym<quote> { <quote> }
 
 proto token quote { <...> }
-token quote:sym<'> { <?[']> <quote_EXPR: ':q'> }
+token quote:sym<'> { <?[']> <quote_EXPR: ':q'> } #'
 token quote:sym<"> { <?["]> <quote_EXPR: ':qq'> }
 
 ## Operators
