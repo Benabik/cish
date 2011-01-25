@@ -53,6 +53,7 @@ INIT {
     cish::Grammar.O(':prec<s>, :assoc<left>',  '%comparison');
     cish::Grammar.O(':prec<r>, :assoc<left>',  '%and');
     cish::Grammar.O(':prec<q>, :assoc<left>',  '%or');
+    cish::Grammar.O(':prec<p>, :assoc<right>', '%ternary');
 }
 
 token circumfix:sym<( )> { '(' <.ws> <EXPR> ')' }
@@ -76,3 +77,8 @@ token infix:sym('>' ) { <sym> <O('%comparison, :pirop<isgt IPP>')> }
 
 token infix:sym<&&> { <sym> <O('%and, :pirop<and PPP>')> }
 token infix:sym<||> { <sym> <O('%or,  :pirop<or  PPP>')> }
+
+token infix:sym<? :> {
+	'?' <EXPR('p')> ':'
+	<O('%ternary, :pasttype<if>, :reducecheck<ternary>')>
+}

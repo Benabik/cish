@@ -38,7 +38,10 @@ method builtin:sym<print>($/) {
     make $past;
 }
 
-method term:sym<integer>($/) { make $<integer>.ast; }
+method term:sym<integer>($/) {
+	make PAST::Val.new( :value($<integer>.ast) );
+}
+
 method term:sym<quote>($/) { make $<quote>.ast; }
 
 method quote:sym<'>($/) { make $<quote_EXPR>.ast; }
