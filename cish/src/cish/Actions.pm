@@ -15,6 +15,8 @@ method TOP($/) {
 method statement($/) {
 	if $<block> {
 		make $<block>.ast;
+	} elsif $<control> {
+		make $<control>.ast;
 	} else {
 		make $<simple>.ast;
 	}
@@ -44,6 +46,20 @@ method builtin:sym<print>($/) {
     my $past := PAST::Op.new( :name<print>, :pasttype<call>, :node($/) );
     for $<EXPR> { $past.push( $_.ast ); }
     make $past;
+}
+
+method control:sym<while>($/) {
+	make PAST::Op.new(
+		$<EXPR>.ast,
+		$<statement>.ast,
+		:pasttype<while>, :node($/)
+	);
+}
+
+method control:sym<if>($/) {
+	my $past := PAST::Op.new( $<EXPR>.ast, :pasttype<if>, :node($/) );
+	for $<statement> { $past.push( $_.ast ); }
+	make $past;
 }
 
 method term:sym<integer>($/) {

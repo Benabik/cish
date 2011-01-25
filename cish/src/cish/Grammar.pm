@@ -22,7 +22,13 @@ token ws {
 ## Statements
 
 rule statement {
-	<block> | <simple> ';'
+	<block> | <control> | <simple> ';'
+}
+
+proto token control { <...> }
+rule control:sym<while> { <sym> '(' <EXPR> ')' <statement> }
+rule control:sym<if>    {
+	<sym> '(' <EXPR> ')' <statement> [ 'else' : <statement> ]?
 }
 
 rule block { '{' <statement>* '}' }
