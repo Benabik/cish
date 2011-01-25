@@ -19,8 +19,10 @@ method statement($/) {
 method simple($/) {
 	if $<builtin> {
 		make $<builtin>.ast
-	} else {
+	} elsif $<EXPR> {
 		make $<EXPR>.ast
+	} else {
+		make PAST::Op.new( :inline<noop>, :pasttype<inline>, :node($/) );
 	}
 }
 

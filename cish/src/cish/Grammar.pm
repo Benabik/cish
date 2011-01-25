@@ -28,6 +28,7 @@ rule statement {
 rule simple {
 	| <builtin>
 	| <EXPR>
+	| <?>
 }
 
 proto token builtin { <...> }
