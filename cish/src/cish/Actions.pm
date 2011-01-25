@@ -13,7 +13,15 @@ method TOP($/) {
 }
 
 method statement($/) {
-	make $<simple>.ast;
+	if $<block> {
+		make $<block>.ast;
+	} else {
+		make $<simple>.ast;
+	}
+}
+
+method block($/) {
+	make past_block($/, $<statement>);
 }
 
 method simple($/) {

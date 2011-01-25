@@ -22,8 +22,10 @@ token ws {
 ## Statements
 
 rule statement {
-	<simple> ';'
+	<block> | <simple> ';'
 }
+
+rule block { '{' <statement>* '}' }
 
 rule simple {
 	| <builtin>
