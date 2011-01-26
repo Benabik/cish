@@ -35,6 +35,8 @@ method block($/) {
 method simple($/) {
 	if $<builtin> {
 		make $<builtin>.ast
+	} elsif $<decl_list> {
+		make $<decl_list>.ast
 	} elsif $<EXPR> {
 		make $<EXPR>.ast
 	} else {
@@ -68,11 +70,41 @@ method control:sym<if>($/) {
 	make $past;
 }
 
+method decl($/) {
+	my $name := ~$<ident>;
+	my $BLOCK := @BLOCKS[0];
+	if $BLOCK.symbol($name) {
+		$/.CURSOR.panic("Redeclaration of variable ", $name);
+	}
+
+	my $past := PAST::Var.new(
+		:name($name), :scope<lexical>, :isdecl(1), :lvalue(1), :node($/)
+	);
+
+	$past.viviself( $<EXPR> ?? $<EXPR>[0].ast !! PAST::Val.new( :value(0) ) );
+
+	$BLOCK.symbol($name, :scope<lexical>);
+
+	$BLOCK.push($past);
+
+	make PAST::Var.new(:name($name));
+}
+
+method decl_list($/) {
+	my $past := PAST::Stmts.new( :node($/) );
+	for $<decl> { $past.push( $_.ast ); }
+	make $past;
+}
+
 method term:sym<integer>($/) {
 	make PAST::Val.new( :value($<integer>.ast) );
 }
 
 method term:sym<quote>($/) { make $<quote>.ast; }
+
+method term:sym<variable>($/) {
+	make PAST::Var.new( :name(~$/) );
+}
 
 method quote:sym<'>($/) { make $<quote_EXPR>.ast; }
 method quote:sym<">($/) { make $<quote_EXPR>.ast; }

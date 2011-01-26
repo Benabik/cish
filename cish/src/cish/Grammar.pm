@@ -36,13 +36,14 @@ rule control:sym<if>    {
 
 rule block {
 	'{'
-		<.begin_block>
+		<.begin_block> :
 		<statement>*
 	'}'
 }
 
 rule simple {
 	| <builtin>
+	| <decl_list>
 	| <EXPR>
 	| <?>
 }
@@ -51,10 +52,14 @@ proto token builtin { <...> }
 rule builtin:sym<say>   { <sym> [ <EXPR> ] ** ','  }
 rule builtin:sym<print> { <sym> [ <EXPR> ] ** ','  }
 
+rule decl { <ident> [ '=' <EXPR> ]? }
+rule decl_list { 'int' <decl> ** ',' }
+
 ## Terms
 
 token term:sym<integer> { <integer> }
 token term:sym<quote> { <quote> }
+token term:sym<variable> { <ident> }
 
 proto token quote { <...> }
 token quote:sym<'> { <?[']> <quote_EXPR: ':q'> } #'
@@ -70,6 +75,7 @@ INIT {
     cish::Grammar.O(':prec<r>, :assoc<left>',  '%and');
     cish::Grammar.O(':prec<q>, :assoc<left>',  '%or');
     cish::Grammar.O(':prec<p>, :assoc<right>', '%ternary');
+	cish::Grammar.O(':prec<o>, :assoc<right>', '%assignment');
 }
 
 token circumfix:sym<( )> { '(' <.ws> <EXPR> ')' }
@@ -98,3 +104,5 @@ token infix:sym<? :> {
 	'?' <EXPR('p')> ':'
 	<O('%ternary, :pasttype<if>, :reducecheck<ternary>')>
 }
+
+token infix:sym<=> { <sym> <O('%assignment, :pirop<assign>')> }
