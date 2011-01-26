@@ -6,7 +6,10 @@ This is the grammar for cish in Perl 6 rules.
 
 grammar cish::Grammar is HLL::Grammar;
 
+token begin_block { <?> }
+
 token TOP {
+	<.begin_block>
     <statement>*
     [ $ || <.panic: "Syntax error"> ]
 }
@@ -31,7 +34,12 @@ rule control:sym<if>    {
 	<sym> '(' <EXPR> ')' <statement> [ 'else' : <statement> ]?
 }
 
-rule block { '{' <statement>* '}' }
+rule block {
+	'{'
+		<.begin_block>
+		<statement>*
+	'}'
+}
 
 rule simple {
 	| <builtin>

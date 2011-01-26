@@ -1,7 +1,13 @@
 class cish::Actions is HLL::Actions;
 
+our @BLOCKS; # @BLOCKS[0] = current scope, 1.. surrounding
+
+method begin_block($/) {
+	@BLOCKS.unshift( PAST::Block.new(:blocktype<immediate>, :node($/)) );
+}
+
 sub past_block($/, @statements) {
-	my $past := PAST::Block.new( $past, :blocktype<immediate>, :node($/) );
+	my $past := @BLOCKS.shift();
 	for @statements { $past.push( $_.ast ); }
 	return $past;
 }
