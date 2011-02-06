@@ -1353,29 +1353,29 @@ declarations has all the work.  It must:
 The `panic` line here is the same as `<.panic: "Redeclaration of
 variable">`.  This is how you throw errors from inside action methods.
 
-			  my $past := PAST::Var.new(
+		my $past := PAST::Var.new(
 			:name($name), :scope<lexical>, :isdecl(1), :lvalue(1), :node($/)
 		);
 
 This sets all the attributes.
 
-			  $past.viviself( $<EXPR> ?? $<EXPR>.ast !! PAST::Val.new( 0 ) );
+		$past.viviself( $<EXPR> ?? $<EXPR>.ast !! PAST::Val.new( 0 ) );
 
 Initializers are EXPR, but optional.  Instead of dying when referencing
 uninitialized variables, setting the variable to 0 is simpler. 
 
-			  $BLOCK.symbol($name, :scope<lexical>);
+		$BLOCK.symbol($name, :scope<lexical>);
 
 This adds the variable to the block's symbol table, so PAST doesn't try
 outer scopes.
 
-			  $BLOCK.push($past);
+		$BLOCK.push($past);
 
 This adds the variable declaration **to the beginning of the block**.
 The variable doesn't actually exist before it's declaration and this is the
 simplest way to do it.
 
-			  make PAST::Var.new(:name($name));
+		make PAST::Var.new(:name($name));
 	}
 
 Finally, referencing the variable in the code ensures that it gets
