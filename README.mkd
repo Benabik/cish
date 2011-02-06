@@ -1440,7 +1440,7 @@ It does have some up and down sides:
 Pro
 ---
 
-* Simplicity of recursive parser, power of Perl regexes, LALR expression
+* Simplicity of recursive parser, power of Perl regexes, LR expression
   parser with flexible defaults.
 * Reasonably easy to build a complex language.  The `cish` grammar and
   actions are 221 lines.
@@ -1456,7 +1456,8 @@ Neutral
   * There is support for types, but not much.
   * Staticly typed languages are possible, but not as easy.
 * No actual bytecode generation
-  * Compiles to PIR, which parrot can compile to bytecode.
+  * Compiles to PIR, which parrot can compile to bytecode:
+    `parrot -o code.pbc code.pir`
 * Code generation not optimized
   * But it can be: [tree-optimization library][tree-op]
 
@@ -1465,7 +1466,7 @@ Neutral
 Con
 ---
 
-* Limits of recursive descent, only LALR for single expression language.
+* Limits of recursive descent, only LR for single expression language.
 * Backtracking past actions can lead to confusing results
   * Mainly with rules like `begin_block`
 * Documentation is sparse, somewhat out of date
