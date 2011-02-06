@@ -114,8 +114,12 @@ to be stored as a string or used as a stack.
 
 Being register based may seem like a minor technical distinction, but there
 are far more books and algorithms to optimize register code than there are
-stack machines like the Java VM or .Net's CLR.  Register-based instructions
-can also create far more efficient bytecode than a stack.
+stack machines like the Java VM or .Net's CLR.  A program on a register
+machine also requires less opcodes than on a stack machine, which means
+that the [VM can run faster][VM Showdown].
+
+[VM Showdown]: http://www.usenix.org/events/vee05/full_papers/p153-yunhe.pdf
+	"VM Showdown: Stack vs Registers (Shi, Gregg, Beatty)"
 
 How do I get it?
 ----------------
