@@ -1,0 +1,1475 @@
+Overview
+========
+
+This is a brief introduction to the Parrot Compiler Toolkit (PCT).
+It should not be construed as documentation or a tutorial, but hopefully
+will be useful for anyone trying to figure out how to make a language
+for the [Parrot VM][Parrot], and perhaps explain why someone might
+want to do that.
+
+What does it do?
+----------------
+
+Makes building a language on Parrot simple.
+
+No, really.  PCT provides a powerful parsing language using [Perl 6
+rules][rules], the new and improved version of the ever popular Perl regex.
+It also provides a pre-made abstract syntax tree (AST) library, creatively
+named Parrot AST or PAST.  It then optimizes your AST into a Parrot
+Optimized Syntax Tree (POST), which itself compiles into bytecode.  And it
+lets you control all of this with a language which is almost, but Not Quite
+Perl (NQP).
+
+[rules]: http://perlcabal.org/syn/S05.html "Synopsis 5: Regexes and Rules"
+
+Okay, that may have been a little dense, but I'll describe each bit of it
+in more detail later.  The short version is that it lets you build a
+language for the Parrot VM using a series of libraries for all steps of
+compilation using an expressive language:
+
+* Parsing
+* Optimization
+* Code Generation
+
+It also provides a default framework that connects all of these things
+together and provides an interpreter, an interactive read-execute-print
+loop (REPL) and compilation to a low-level assembler-like language (PIR).
+
+Why do I care?
+--------------
+
+Because the Parrot VM is the next best thing for dynamic, or scripting,
+languages.  It provides:
+
+* Cross-platform support
+* Multiple language support
+* Complex language features
+* Object Orientation
+* Register-based VM
+
+### Cross-platform support
+
+Parrot is designed to support not only Linux but also BSD, Mac OS X, and
+Windows.  Pre-built packages are available for most of these, and the VM
+comes with objects to provide file I/O, sockets, and threading on all
+supported platforms.
+
+### Multiple language support
+
+Parrot is designed from the ground up to support multiple languages running
+side by side.  It provides native integers, floating point numbers,
+strings, and objects (called PMCs) along with some standard containers like
+resizing arrays, hashes, and iterators.  Any language built on top of these
+features should be able to call libraries written in any other language
+on Parrot.
+
+### Complex language features
+
+Parrot comes with built-in support for features that are often difficult to
+get right:
+
+* Continuations
+* Concurrency
+* Events
+* Exceptions
+* Garbage Collection
+* Multiple Dispatch (function overloading)
+* Native Libraries (calling C code a/k/a Native Call Interface)
+
+### Object Oriented
+
+Does this look like assembler?
+
+		  .sub main :main
+		.local string name
+		.local pmc file
+		push_eh file_error # Jump on error
+
+		name = 'myfile.txt'
+		file = new 'FileHandle'
+		file.'open'(name, 'w')
+		file.'print'('Hello, world!')
+		file.'close'
+		goto end
+
+	file_error:
+		say "Error opening myfile.txt!"
+
+	end:
+		pop_eh
+	.end
+
+No?  That's how you open and write to a file using the Parrot Intermediate
+Language (PIR).  There is a slightly lower level language called PASM
+(Parrot Assembly), but human written code is typically in PIR and each of
+those method calls turn into only one or two instructions.
+
+Parrot objects are called PMCs, which stands for PolyMorphic Container.
+PMCs are how Parrot sees all complex data and like most objects have both
+data and methods.  They also have a "VTABLE" which specifies how they
+should work with standard opcodes like "add" and "bitwise_not" and even how
+to be stored as a string or used as a stack.
+
+### Register-based VM
+
+Being register based may seem like a minor technical distinction, but there
+are far more books and algorithms to optimize register code than there are
+stack machines like the Java VM or .Net's CLR.  Register-based instructions
+can also create far more efficient bytecode than a stack.
+
+How do I get it?
+----------------
+
+Parrot is available for download from <http://parrot.org/download>,
+and the source is available on [Github](http://github.com/parrot/parrot).
+Once you have downloaded and extracted the source, it can be built with two
+simple commands:
+
+		  $ perl Configure.pl
+	$ make
+
+It does require a C compiler, make  and Perl 5.8 to build from source.  It
+will use [ICU][ICU] to provide Unicode support and [GMP][GMP] for arbitrary
+precision integers if available.
+
+[ICU]: http://site.icu-project.org/ "International Components for Unicode"
+[GMP]: http://gmplib.org/ "GNU Multiple Precision arithmetic library"
+
+Parrot can be used straight from it's build directory or can be installed
+with a simple `make install` command.  For the rest of this document, I'll
+assume you have built Parrot and installed it to `/usr`.
+
+While there are packages available for many Linux distributions, they are
+not all recent or complete.  Debian testing contains a year old version
+(and there have been many changes since then) and the scripts needed for
+using PCT are in a package named "parrot-devel".
+
+If using a package, ensure that it's a recent version and that it contains
+the PCT tools.  The most recent version as of this writing (Jan 2011) is
+3.0.0 and versions are released approximately monthly.  To see if your
+package contains PCT, look for a file named `mk_language_shell.pl` in
+`/usr/lib/parrot/3.0.0/tools/dev` (or similar).
+
+Where'd it come from?
+---------------------
+
+The Parrot VM has its origins in an [April Fool's joke][joke] about a
+language that would unite Python and Perl.  The Perl community used the
+name when they decided to create a virtual machine that could handle not
+only [Perl 6][rakudo], but also other dynamic languages like
+[Python][pynie], [Ruby][cardinal], and [Lua][lua].
+
+[joke]:     http://www.perl.com/pub/a/2001/04/01/parrot.htm
+[rakudo]:   http://rakudo.org/
+[pynie]:    https://bitbucket.org/allison/pynie
+[cardinal]: https://github.com/cardinal/cardinal/
+[lua]:      https://github.com/fperrad/lua
+
+The Parrot Compiler Toolkit has existed in various forms since the
+beginning of the Parrot project and is in very active use by
+[Rakdudo][rakudo], the Perl 6 on Parrot project.
+
+Using PCT
+=========
+
+All that background is very nice, but what does the PCT look like?  The
+best way to show it is to walk through creating a simple language with it.
+Fortunately, PCT gives us a simple language with a single command.
+
+By this point you should have a full installation of Parrot.  If not,
+scroll back up to "How do I get it?".  I'll wait.  Back?  Good.  Now, open
+up a shell and run the following: (I'm using cish since that's the name of
+the example I'll use later.)
+
+		  $ perl /usr/lib/parrot/3.0.0/tools/dev/mk_language_shell.pl cish
+
+If that doesn't work, your copy of parrot is probably in a slightly
+different place than mine.  If you're running parrot from the source,
+`mk_language_shell.pl` is in `parrot-3.0.0/tools/dev`.  If you installed a
+different version, change the `3.0.0` above.  If you (or the package from
+your distro) put it somewhere different than me, look in places like `/opt`
+and `/usr/local` for a `lib/parrot` directory.
+
+This is the last time you need to find strange files like that.  From now
+on, all you need is a copy of the main `parrot` binary on your `$PATH`.
+
+That command creates a directory `cish/` that contains all the files needed
+start writing a language with PCT.  Parrot needs a name for your language
+because other people can ask to compile your language so trying things like
+`.../mk_language_shell.pl .` won't work (or at least won't work well).
+Let's check the contents of `cish/`.  It should have (from least to most
+interesting):
+
+* `PARROT_REVISION`: a file that should hold the version of Parrot needed
+  to run your language.  Unfortunately broken.
+* `README`: A file that describes your language.  Very empty right now,
+  but it does talk about running `parrot setup.pir`, which is an
+  important clue as to what do to next.
+* `cish/`: An empty directory that will hold the compiled result of your
+  language.
+* `t/`: A file for tests for your language.  Normally a great idea, but
+  I'll gloss over this for simplicity.  The test files are supposed to be
+  written in your language and output the [Test Anywhere Protocol][TAP]
+* `setup.pir`: A PIR program (run with `parrot`) that helps build your
+  program.  You can run it with:
+  * `build`: (the default) builds your language
+  * `test`: runs the tests scripts in `t/`
+  * `install`: Installs your language to `/usr/local`
+* `cish.pir`: The front-end for your language.  A very thin layer around
+  The `cish` compiler object.
+* `src/`
+  * `cish.pir`: The compiler object.  This creates a `HLL` object named
+  `cish` and includes a variety of files named `gen_*.pir`.  I'll explain
+  this in a moment.
+  * `cish/`: The important directory, full of NQP files.
+    * `Compiler.pm`: A small bit of code to connect everything else.
+    * `Runtime.pm`: The "standard library"
+    * `Grammar.pm`: The grammar, written in Perl 6 rules
+    * `Actions.pm`: The tree building code
+
+[TAP]: http://en.wikipedia.org/wiki/Test_Anything_Protocol
+
+You may have noticed that these files already have code.  Running `parrot
+setup.pir` (from the main directory) will compile it.  This does the
+following:
+
+1. Uses NQP to compile the `.pm` files to PIR.
+2. Uses Parrot to compile the PIR to bytecode (PBC).
+3. Uses `pbc_to_exe` to make a C wrapper for your language.
+4. Uses your C compiler to build the wrapper.
+
+Step 1 creates the `gen_*.pir` files referenced in `cish/cish.pir`.  NQP
+stands for Not Quite Perl.  It provides a far more friendly language to
+write in than PIR, including providing very nice features for compilers
+like regular expressions and complex tree-based match objects.  If you know
+Perl, the language will look familiar, but slightly different.  The first
+major difference is that it is based on [Perl 6][Perl6], not Perl 5.  The
+second is that you can use `pir::` at any point to access Parrot VM opcodes
+directly.
+
+Steps 3 and 4 are interesting.  It generates a short C program that
+accesses the Parrot VM through it's embedding interface and executes your
+code.  You can run your language using any of the following:
+
+* `parrot cish.pir`: Compiles the PIR code and runs it
+* `parrot cish.pbc`: Loads the compiled bytecode
+* `./installed_cish`: Runs an embedded Parrot VM to load your language.
+  (I'll use this from now on)
+
+Trying out the default language
+-------------------------------
+
+PCT creates a language that has the following features:
+
+* Simple mathmatical expressions: *, /, +, -
+* Output with `print` and `say`.  (`say` is similar to `println` from Java.)
+* String literals
+* Comments starting with `#`
+
+The front-end already has several nice features:
+
+* `--target` to view compilation steps
+* Read-Execute-Print Loop
+* Ability to run scripts (via `#!`)
+
+### `--target`
+
+The `--target` option provides insight to what is actually happening as PCT
+processes the source.  It accepts the following four options: `parse`,
+`past`, `post` and `pir`.  Each corresponds to a stage of compilation,
+which I'll talk about in the next section.  If you're curious, you can run
+each of the following commands and examine the output:
+
+		  $ echo 'say 1+1' > temp
+	$ ./installable_cish --target=parse temp
+	$ ./installable_cish --target=past  temp
+	$ ./installable_cish --target=post  temp
+	$ ./installable_cish --target=pir   temp
+
+Of the four, I only really find the PAST and PIR output readable, but each
+one gives you some idea of what's happening.
+
+### Read-Execute-Print Loop
+
+A REPL is a very common feature of dynamic languages.  Running
+`./installable_cish` without any arguments brings you to a prompt.  Typing
+in any valid code will show you the result immediately:
+
+		  $ ./installable_cish
+	> 1+1
+	2
+	> 'Hello World!'
+	Hello World!
+	> invalid code
+	Syntax error at line 1, near "invalid co"
+		  
+### Scripting
+
+Given a file and no `--target` argument, it will run the file immediately.
+This is very useful in *nix environments, where starting a file with
+`#!./installable_cish` will start your language with the script as an
+argument.  For example:
+
+		  $ echo '#!./installable_cish` > temp
+	$ echo 'say "Hello World!"' >> temp
+	$ chmod o+x temp
+	$ ./temp
+	Hello World!
+
+Parsing
+-------
+
+PCT compilers use four phases: Parsing, PAST building, POST generation, and
+PIR generation.  Of these, you only have to write the first two.  PCT knows
+how to build code from PAST.  That's the point of using PAST, after all.
+Let's examine the four stages using the code and the output of various
+`--target` options.
+
+Parsing is done via a subset of [Perl 6 rules][rules].  This is a language
+derived from regular expressions, but more regular and better for parsing.
+The grammar is found in `cish/src/cish/Grammar.pm` and is written in NQP.
+I'll walk through it step-by-step.  (Not quite line-by-line.)
+
+To begin with, it uses two styles of comments.  One is the familiar "`#` to
+end of line" comment.  The other is [Plain Old Documentation][POD] (POD).
+POD is intended to function much like Javadoc or Doxygen, but all you need
+to know here is that NQP will ignore everything between `=begin` and
+`=end`, but only if those keywords are at the beginning of a line.
+
+[POD]: http://search.cpan.org/~zag/Perl6-Pod-0.24/lib/Perl6/Pod.pm
+
+		  grammar cish::Grammar is HLL::Grammar;
+
+This defines the grammar, which is actually a class.  In NQP, grammars are
+classes and rules are methods.  If this sounds like this will be a
+recursive decent parser, you're half right.  (Wait for the other half.) The
+upside to arranging things like this is that we can inherit grammars to
+save a lot of time.
+
+
+`HLL::Grammar` is the default grammar (HLL stands for High Level Language).
+It defines useful rules like `integer` (including binary, octal, and hex),
+`dec_number` (floats with scientific notation), and `identifier`.  It
+ as provides error handling.
+
+		  token TOP {
+	    <statementlist>
+	    [ $ || <.panic: "Syntax error"> ]
+	}
+
+There are two kinds of rules: rules and tokens.  A rule allows backtracking
+and matches whitespace literally, while a token does neither.  TOP is a
+special name for a rule: it's where PCT starts parsing your language.  It
+is defined here as a token so that if it reaches the end of your program
+too early, it doesn't go back and try to re-parse your program another way
+(probably a futile effort).
+
+Now for some syntax explination.  I won't go into much depth about the
+grammar language, explaining just enough to move forward at each point.  If
+you're ever more curious, you can check out the [full
+specification][rules].
+
+Plain text inside angle brackets invokes another rule: like
+`<statementlist>` here in TOP.  Since rules are methods, you can invoke any
+method this way, like `panic`.  The `.` in front of `panic` just means we
+don't care about the return result of the method, but by default NQP will
+remember what each sub-rule matched (this will be useful in the next step
+of parsing).  Other special syntax can be found inside angle brackets like
+this, distinquished by the first character.
+
+The square brackets provide grouping, much like parenthesis.  However,
+Parenthesis remember what they matched (an anonymous sub-rule, in a way)
+and square brackets don't.  In this case, it's used to limit the reach of
+the `||` alternation operator.
+
+		  token ws {
+	    <!ww>
+	    [ '#' \N* \n? | \s+ ]*
+	}
+
+`ws` is another special rule.  It can match anywhere there is whitespace
+in a rule (but not token).  It is typical to define comments inside `ws` so
+they get safely ignored.
+
+`<!ww>` means that the rule `ww` does *not* match here.  `ww` is a special
+rule in NQP that means "between two word characters" (word characters are
+alphanumerics and underscore, usually written `\w`).  This keeps whitespace
+from matching in in the middle of identifiers.
+
+`|` is a slightly different alternation operator.  A single bar will match
+whichever side matches more text (longest token matching) and a double bar
+will try the second side only if the first fails.
+
+The backslash escaped letters represent character classes.  These will be
+familiar to you if you know Perl 5 regexes.  `\n` is newline and '\N' is
+*not* a newline, which makes the left half of the alternation match a
+comment until end of line.  `\s` represents any whitespace character such
+as spaces, tabs, and newlines.
+
+This rule uses every kind of repetition operator.  `?` makes the previous
+token optional (0 or 1 times), `*` matches zero or more times, while `+`
+matches at least once but possibly more.  The last star applies to the
+entire group, while the others are attached to a single character.
+
+		rule statementlist { [ <statement> | <?> ] ** ';' }
+
+`statementlist` is, as you might expect, a list of statements.  Because it
+is defined as a standard rule, whitespace (as defined by `ws`) can appear
+any place whitespace is in the rule.  Whitespace in tokens is only for
+clarity (but can be matched with `<ws>` or `\s`).
+
+The three interesting bits of syntax are `<?>`, `**`, and the quotes.
+`<?>` is the empty rule and literally matches nothing.  `**` is a special
+repetition operator, which requires the token (or group) after it between
+every repetition.  This rule therefore only requires semicolons between
+statements, not after them.  The quotes match their contents literally,
+which is very useful if you want to match things like `'+'` or `'*'`.
+
+		  proto token statement_control { <...> }
+
+`statement` is rather mundane, but `statement_control` requires some
+attention.  See, I was fibbing slightly when I said there are two kinds of
+rules.  You can also declare a rule as a `proto`.  This creates a kind of
+extension point for the language.  Instead of saying that a statement is an
+if, or a while, or a something else or another thing, you can say its a
+`statement_control`, which is a proto.  You can then declare as many types
+of `statement_control`s as you wish.  This helps prevent mistakes where you
+forget to include a subrule in a long list of alternations.  (Which is
+useful because NQP won't tell you if you've misspelled a subrule.)
+The `<...>` means match whatever the other rule says.
+
+		  rule statement_control:sym<say>   { <sym> [ <EXPR> ] ** ','  }
+	rule statement_control:sym<print> { <sym> [ <EXPR> ] ** ','  }
+
+This is the syntax to add rules to a proto.  `<sym>` in the rule matches 
+whatever comes between the brackets in the rule name.  Protos are used to
+great effect in the expression parser, which is the `<EXPR>` part from
+`statement`.
+
+Expression Parser
+-----------------
+
+Where LL parsers really fail is mathmatical expressions.  If you try to do
+left recursion, NQP will happily call the same rule over and over again
+until it hits a recursion limit and dies.  So you can't write something
+like this:
+
+		  rule expression { <expression> '+' <expression> | <number> }
+
+But earilier I said that LL parsing is only half the story.  NQP embeds a
+LR parser in the `EXPR` rule, specifically to parse expressions like this.
+It also defines a very flexable series of protos: `circumfix`, `infix`,
+`postfix`, `postcircumfix`, `prefix` and `term`.  The rules fit together
+like this:  (The `...` are the protos you can fill in.)
+
+		  EXPR:       termish ( infix termish )*;
+	termish:    prefixish* term postfixish*;
+	prefixish:  prefix ws;
+	postfixish: postfix | postcircumfix;
+
+	circumfix:     ...
+	infix:         ...
+	postfix:       ...
+	postcircumfix: ...
+	prefix:        ...
+	term:          ... | circumfix
+
+While `infix`, `postfix` and `prefix` are fairly simple to understand, the
+others might need some explanation.  Two have examples in the code:
+
+		  token term:sym<integer> { <integer> } 
+	token term:sym<quote> { <quote> }
+		  
+`term` is any final expression like variables and literals.
+
+	token circumfix:sym<( )> { '(' <.ws> <EXPR> ')' }
+
+`circumfix` is intended to go around expressions.  As noted above, it's
+really just a special kind of term.  It's actually defined in the NQP
+source as:
+
+		  proto token circumfix { <...> }
+	token term:sym<circumfix> { <circumfix> }
+
+`postcircumfix` is intended to surround expressions but appear after
+expressions.  This is where things like function calls and array
+subscripting would be defined.
+
+Of course, to make an LR parser work we need to define precedence.  This
+occurs in two places.  You must define your precedence levels in an INIT
+block, which is run when your code is first loaded into the VM.  The other
+is in each operator rule.  Since circumfix operators are a special kind of
+term, they don't need precedence levels.
+
+		  INIT {
+	    cish::Grammar.O(':prec<u>, :assoc<left>',  '%multiplicative');
+	    cish::Grammar.O(':prec<t>, :assoc<left>',  '%additive');
+	}
+
+Each level is defined by a call to the `O` method on your grammar.  (It's
+part of HLL::Grammar.)  It takes two stings as arguments.  The first
+defines the settings for a precedence level and the second gives it a name
+which is used later in the rules.  These names should start with a `%`, as
+they may be implemented with actual hashes at some point.
+
+There are two settings that affect parsing for a level: precedence and
+associativity.  The two settings are separated by a comma and are in a
+string.  Precedence is specified as `:prec<`*string*`>`.  The levels are
+sorted based on these strings, in ASCII order ( 0-9, A-Z, a-z ), and later
+strings have lower precedence.  The associativity one of the following:
+
+* `:assoc<left>`, `:assoc<right>`
+* `:assoc<unary>` - unary operators (postfix/prefix) *must* be marked with
+  this.  Otherwise the parser may get very confused looking for the other
+  operand.
+* `:assoc<list>` - Creates a list of all operands.  If `infix:sym<,>` is
+  defined as `:assoc<list>`, NQP will parse `1,2,3` as a flat list
+  `[1,2,3]` instead of a tree `{{1,2},3}`.
+
+Note that there is no non-associative setting.  Enforcing non-associativity
+would have to be done in your actions.  (There also appear to be
+undocumented settings: `:uassoc`, `:nextterm`, `:sub` and `:reducecheck`.
+Of them, I could only determine that `:reducecheck<`*method*`>` will call
+*method* when determining if the grammar should reduce at that point, but I
+can't tell how it's supposed to influence the result at all.)
+
+		  token infix:sym<*>  { <sym> <O('%multiplicative, :pirop<mul>')> }
+
+The settings for each operator generally very simple, they first parse
+their symbol, then include the settings for the operator.
+`%multiplicative` refers to the precedence table above, but each also
+includes a `:pirop<`*opcode*`>` setting that is used by NQP to
+automatically generate PAST nodes for expressions.  The argument to
+`:pirop` is any [PIR opcode][opcodes].
+
+[opcodes]: http://docs.parrot.org/parrot/latest/html/ops.html
+
+Parse Output
+------------
+
+With the grammar explained, we can see what it produces with some basic
+output:
+
+		  $ ./installable_cish --target=parse
+	> say 1+1
+	"parse" => PMC 'Regex;Match' => "say 1+1\n" @ 0 {
+	    <statementlist> => PMC 'Regex;Match' => "say 1+1\n" @ 0 {
+	        <statement> => ResizablePMCArray (size:1) [
+	            PMC 'Regex;Match' => "say 1+1\n" @ 0 {
+	                <statement_control> => PMC 'Regex;Match' => "say 1+1\n" @ 0 {
+	                    <EXPR> => ResizablePMCArray (size:1) [
+	                        PMC 'Regex;Match' => "+" @ 5 {
+	                            <OPER> => PMC 'Regex;Match' => "+" @ 5 {
+	                                <sym> => PMC 'Regex;Match' => "+" @ 5
+	                                <O> => Hash {
+	                                    "assoc" => "left",
+	                                    "pirop" => "add",
+	                                    "prec" => "t"
+	                                }
+	                            }
+	                            <infix> => \parse[0][0]
+	                            [0] => PMC 'Regex;Match' => "1" @ 4 {
+	                                <integer> => PMC 'Regex;Match' => "1" @ 4 {
+	                                    <VALUE> => PMC 'Regex;Match' => "1" @ 4
+	                                    <decint> => \parse[0][0]
+	                                }
+	                            }
+	                            [1] => PMC 'Regex;Match' => "1" @ 6 {
+	                                <integer> => PMC 'Regex;Match' => "1" @ 6 {
+	                                    <VALUE> => PMC 'Regex;Match' => "1" @ 6
+	                                    <decint> => \parse[0][0]
+	                                }
+	                            }
+	                        }
+	                    ]
+	                    <sym> => PMC 'Regex;Match' => "say" @ 0
+	                }
+	            }
+	        ]
+	    }
+	}
+	> 
+
+That's a lot of output, but it's simple to understand if you take it piece
+by piece.  First thing to understand is that the output is a tree, which
+we'd expect to have the following format: (Pardon the ASCII art)
+
+		  say
+	\- +
+	 |- 1
+	 \- 1
+
+So the top level is 
+
+		  "parse" => PMC 'Regex;Match' => "say 1+1\n" @ 0 {
+	    <statementlist> => PMC 'Regex;Match' => "say 1+1\n" @ 0 {
+	        <statement> => ResizablePMCArray (size:1) [
+	        	...
+	        ]
+	    }
+	}
+
+The basic format here is *name* `=>` *type* *value*.  Remember that PMCs are
+Parrot classes.  The semicolon is how parrot separates namespaces.  In most
+languages `Regex;Match` would be spelled Regex::Match, and they represent
+the results of matching strings to rules.  `ResizablePMCArray` is what it
+says: it's much like a `Vector<Object>` in Java.
+
+Match objects store the string that they matched and the position.  The
+first match object is the result of TOP and matches the full string at
+position 0.  The match object stores the results of sub-rules by their
+name.  TOP matches a single statementlist, which in turn matches multiple
+statements.  If a subrule is matched multiple times, it is naturally stored
+as an array.
+
+
+		  PMC 'Regex;Match' => "say 1+1\n" @ 0 {
+	    <statement_control> => PMC 'Regex;Match' => "say 1+1\n" @ 0 {
+	        <EXPR> => ResizablePMCArray (size:1) [
+	            PMC 'Regex;Match' => "+" @ 5 {
+	                <OPER> => PMC 'Regex;Match' => "+" @ 5 {
+	                    <sym> => PMC 'Regex;Match' => "+" @ 5
+	                    <O> => Hash { ... }
+	                }
+	                <infix> => \parse[0][0]
+	                [0] => PMC 'Regex;Match' => "1" @ 4 { ... }
+	                [1] => PMC 'Regex;Match' => "1" @ 6 { ... }
+	            }
+	        ]
+	        <sym> => PMC 'Regex;Match' => "say" @ 0
+	    }
+	}
+
+Here is the structure we were expecting.  `say` is a kind of
+`statement_control` and can be differentiated from other kinds by the value
+of `sym`.  EXPR stores its OPER and numbered sub expression.  Notices that
+OPER has it's full O hash, including the pirop.  This makes building syntax
+tress much easier.
+
+Grammar Actions
+---------------
+
+The code that converts these complex match objects into a syntax tree is
+stored in `cish/src/cish/Actions.pm`.  The basic format is a series of
+methods with names that mirror the rules in the grammar.  This makes
+finding the related code simple without making one file overly cluttered.
+
+The actions are responsible for turning match objects into PAST trees.
+They do this by using the `make` function, which returns a value and
+attaches it to the match object in it's `.ast` variable.  [Parrot Design
+Document 26][PDD26] has the full list of PAST nodes.  The contents of the
+match object are easily available as `$<`*name*`>` for a subrule *name*.
+
+[PDD26]: http://docs.parrot.org/parrot/latest/html/docs/pdds/pdd26_ast.pod.html
+
+		  class cish::Actions is HLL::Actions;
+
+This defines the file to hold a class derived from HLL::Actions.  I'm
+actually going to start discussing the most important thing in
+HLL::Actions: the `EXPR` method.  This method automates building PAST::Op
+nodes for expressions and can be customized in three ways.  The first way
+is setting `:pirop`, as explained above.  The second is to set a
+`:pasttype` option instead.  The PAST::Op object can express nearly every
+type of language operation, including arbitrary inline PIR.  For a full
+list of types, see [PDD26][PDD26].  The final way is to define a OPER
+method on your actions class, and EXPR will push the operands onto whatever
+AST object you return.
+
+		  method TOP($/) {
+	    make PAST::Block.new( $<statementlist>.ast , :hll<cish>, :node($/) );
+	}
+
+Here we see both the `.ast` and `make` syntax at work.  This is the basic
+template for action methods: take a sub-rule's AST, wrap it in something,
+and return it using `make`.  In this case, we're wrapping the statements in
+a Block.  PAST::Block nodes express a scope and most programs need a
+top-level scope, so TOP creates one.  All PAST nodes take an argument named
+`:node`, which takes the match object so PAST knows the location and text
+from the source.
+
+		  method statementlist($/) {
+	    my $past := PAST::Stmts.new( :node($/) );
+	    for $<statement> { $past.push( $_.ast ); }
+	    make $past;
+	}
+
+This is the other major kind of grammar action, which constructs the node
+and then attaches a variable number of sub-nodes to it.  NQP's for loop
+takes an array and sets `$_` to each element in turn.  `PAST::Stmts` is a
+node that that executes the nodes pushed onto it in turn.
+
+		  method statement($/) {
+	    make $<statement_control> ?? $<statement_control>.ast !! $<EXPR>.ast;
+	}
+
+This is how you deal with alternation.  The default language uses NQP's
+ternary operator, but using `if() {} else {}` would work just as well.
+
+The other methods in the default language are similar to these, with
+perhaps the most interesting note being the `:pasttype<call>` used for
+`say` and `print`, which call the methods in `cish/src/cish/Runtime.pm`.
+
+PAST Output
+-----------
+
+To see the results of the actions, we can run the language again with
+`--target=past`.  I find this output the most readable, although the parse
+output is very useful if you're debugging the rules themselves.
+The basic format is identical to the parse output, but this uses PAST node
+types instead of Regex::Match.  It's also far more compact since it doesn't
+have to carry around the state for every single rule.
+
+		  $ ./installable_cish --target=past
+	> say 1+1
+	"past" => PMC 'PAST;Block'  {
+	    <hll> => "cish"
+	    <pos> => 0
+	    <source> => "say 1+1\n"
+	    [0] => PMC 'PAST;Stmts'  {
+	        <pos> => 0
+	        <source> => \past
+	        [0] => PMC 'PAST;Op'  {
+	            <name> => "say"
+	            <pasttype> => "call"
+	            <pos> => 0
+	            <source> => \past
+	            [0] => PMC 'PAST;Op'  {
+	                <name> => "&infix:<+>"
+	                <pirop> => "add"
+	                <pos> => 5
+	                <source> => \past
+	                [0] => 1
+	                [1] => 1
+	            }
+	        }
+	    }
+	}
+	>
+
+Code Generation
+---------------
+
+There is no customized code for code generation.  Once a PAST tree is
+built, PCT knows how to generate POST nodes and PIR code from it.  I don't
+find POST particularly enlightening, but the PIR for our test line of code
+is simple enough.  If you wish to see the POST nodes, use `--target=post`.
+
+		  $ ./installable_cish --target=pir
+	> say 1+1
+	
+	.HLL "cish"
+	
+	.namespace []
+	.sub "_block11"  :anon :subid("10_1295821485.07532")
+	.annotate 'line', 1
+	    new $P13, 'Integer'
+	    set $P13, 1
+	    add $P14, $P13, 1
+	    $P15 = "say"($P14)
+	    .return ($P15)
+	.end
+	
+	
+	> 
+
+The `.HLL` declaration tells parrot to load the `Runtime.pm` from your
+language.  Because the PAST::Block had no name, it creates a name and marks
+it as anonymous.  The `.annotate` declaration is the final result of
+passing the match nodes into the PAST tree.  NQP appears to prefer creating
+`Integer` objects instead of using parrot's integer registers.
+
+Creating a C-ish Language
+==========================
+
+I'll create a basic C-like language that has one selection construct (if),
+one loop construct (while), integer variables, and functions.  This should
+be enough to demonstrate both the features and power of PCT.
+
+I will call it C-ish or `cish` for short (which is why I suggested that
+name earlier).  The grammar for it is as follows:
+
+		  number  = "\d+";
+	ident   = "[_a-zA-Z][_a-zA-Z0-9]*";
+	comment = "/\* .* \*/";
+
+	%right '='
+	%left '?'
+	%left '||'
+	%left '&&'
+	%nonassoc '<' '<=' '==' '!=' '>=' '>'
+	%left '*' '/' '%'
+	%left '+' '-'
+	%right '~'
+
+	program: statement;
+	statement: block | control | simple ';';
+	block: '{' statement* '}';
+	control: if | while;
+	if: 'if' '(' expr ')' block ( 'else' block )?;
+	while: 'while' '(' expr ')' statement;
+	simple: builtin | decl | expr | /* empty */;
+	builtin: print | say;
+	print:  'print'  expr;
+	say:    'say'    expr;
+	decl: 'int' ident ('=' expr) (',' ident ('=' expr)?)*
+	expr: '(' expr ')'
+	    | ident '=' expr
+	    | expr '?' expr ':' expr
+	    | expr '||' expr
+	    | expr '&&' expr
+	    | expr '<'  expr
+	    | expr '<=' expr
+	    | expr '==' expr
+	    | expr '!=' expr
+	    | expr '>=' expr
+	    | expr '>'  expr
+	    | expr '*' expr
+	    | expr '/' expr
+	    | expr '%' expr
+	    | expr '+' expr
+	    | expr '-' expr
+	    | '-' expr %prec '~'
+	    | '!' expr %prec '~'
+	    | ident
+	    | number
+
+It's much like C, but only has int variables and no functions.  Yes,
+assignment is an expression and ints are used as booleans which makes `if(
+a = 2 )` valid (and probably wrong) code.  Blame Kernighan and Ritchie.
+The comment token is meant to ignore everything between `/*` and `*/`.
+
+Syntax Tweaks
+-------------
+
+While the default language is powerful, it's not C-like.  We'll start of
+with several tweaks to the grammar.  First, the comment style isn't what we
+want.  The fix for that is to change the `ws` rule:
+
+		  # This <ws> rule treats /* this as a comment */
+	token ws {
+	    <!ww>
+	    [ '/*' .*? '*/' | \s+ ]*
+	}
+
+Next, we'll do a little reorganization.  We're removing the old statement
+list and replacing it with a simple statement that must end with a
+semicolon.  Replace `TOP`, `statementlist` and `statement` in the grammar:
+
+		  token TOP {
+	    <statement>*
+	    [ $ || <.panic: "Syntax error"> ]
+	}
+	
+	rule statement {
+		<simple> ';'
+	}
+	
+	rule simple {
+		| <builtin>
+		| <EXPR>
+	}
+
+And in the actions, we must replace the methods for the rules we replaced.
+`TOP` must now handle what `statementlist` used to.  We're going to have to
+do something similar in `block` later, so we make it a function (called a
+`sub` in NQP).  Also, the handling of different types of `statement` moves
+down into `simple`.
+
+		  sub past_block($/, @statements) {
+		my $past := PAST::Block.new( $past, :blocktype<immediate>, :node($/) );
+		for @statements { $past.push( $_.ast ); }
+		return $past;
+	}
+
+	method TOP($/) {
+		my $past := past_block($/, $<statement>);
+		$past.hll('cish');
+		make $past;
+	}
+	
+	method statement($/) {
+		make $<simple>.ast;
+	}
+	
+	method simple($/) {
+		if $<builtin> {
+			make $<builtin>.ast
+		} else {
+			make $<EXPR>.ast
+		}
+	}
+
+
+What the default language calls `statement_control`, we're calling
+`builtin`.  This is a simple search and replace in both the grammar and
+actions (since renaming a rule requires renaming it's action).
+
+
+Empty Statements
+----------------
+
+At the moment, `cish` doesn't allow empty statements.  It's simple to add
+to the grammar:
+
+		  rule simple {
+		| <builtin>
+		| <EXPR>
+		| <?>
+	}
+
+It's not as simple to add to the actions.  The "best" way to do it is to
+generate nothing, but this can result in empty blocks later and PAST
+doesn't handle that very well.  So instead, we'll generate a `noop` opcode:
+
+		  method simple($/) {
+		if $<builtin> {
+			make $<builtin>.ast
+		} elsif $<EXPR> {
+			make $<EXPR>.ast
+		} else {
+			make PAST::Op.new( :inline<noop>, :pasttype<inline>, :node($/) );
+		}
+	}
+
+
+
+Additional Math
+---------------
+
+We can begin the more substantial changes by adding the additional
+mathematical operators: unary minus and modulus.  First, we need an
+additional precedence level so we need to add it in an INIT block.  You can
+either have multiple INIT blocks, or merge them all into one.
+
+		  INIT {
+	    cish::Grammar.O(':prec<v>, :assoc<unary>',  '%unary');
+	}
+
+	token prefix:sym<-> { <sym> <O('%unary, :pirop<neg>')> }
+
+	token infix:sym<%>  { <sym> <O('%multiplicative, :pirop<mod>')> }
+
+Note that the positioning doesn't matter, but it's convenient if you add it
+between `circumfix:sym<( )>` and `infix:sym<%>`.  After adding these, head
+to the top-level 'cish' directory and try the following:
+
+		  $ parrot setup.pir
+	$ ./installable_cish
+	> -1
+	-1
+	> 3 % 2
+	1
+	>
+
+These were the simpliest to do, since HLL's built in EXPR methods handle
+most of the work.
+
+Error Handling
+--------------
+
+Now is a good time to discuss error handling.  There are two levels of
+error handling in question: user errors and programmer errors.  User errors
+are handled very generically by default:
+
+		  > bogus input
+	Syntax error at line 1, near "bogus inpu"
+
+It at the very least, it does describe the line number and section of
+source that caused the error.  It does not, however, have any information
+about where in the grammar this error happened.  This may improve with
+time, but currently that's all you get.  If you catch a parse error using
+something like `<.panic: "error message">`, you'll get:
+
+		  > bogus input
+	error message at line 1, near "bogus inpu"
+
+At the programming end, the error messages are similar, but end up buried
+in backtrace:
+
+		  $ parrot setup.pir
+	"/usr/local/bin/parrot-nqp" --target=pir --output=src/gen_grammar.pir  src/cish/Grammar.pm
+	Confused at line 1, near "bogus inpu"
+	current instr.: 'parrot;HLL;Grammar;panic' pc 635 (ext/nqp-rx/src/stage0/HLL-s0.pir:421)
+	called from Sub 'parrot;NQP;Grammar;comp_unit' pc 6762 (ext/nqp-rx/src/stage0/NQP-s0.pir:2127)
+	called from Sub 'parrot;NQP;Grammar;TOP' pc 1318 (ext/nqp-rx/src/stage0/NQP-s0.pir:494)
+	called from Sub 'parrot;Regex;Cursor;parse' pc 371 (ext/nqp-rx/src/stage0/Regex-s0.pir:230)
+	called from Sub 'parrot;HLL;Compiler;parse' pc 96 (ext/nqp-rx/src/stage0/HLL-s0.pir:63)
+	called from Sub 'parrot;PCT;HLLCompiler;compile' pc 464 (compilers/pct/src/PCT/HLLCompiler.pir:331)
+	called from Sub 'parrot;HLL;Compiler;eval' pc 24429 (ext/nqp-rx/src/stage0/HLL-s0.pir:8218)
+	called from Sub 'parrot;PCT;HLLCompiler;evalfiles' pc 1501 (compilers/pct/src/PCT/HLLCompiler.pir:764)
+	called from Sub 'parrot;PCT;HLLCompiler;command_line' pc 1712 (compilers/pct/src/PCT/HLLCompiler.pir:873)
+	called from Sub 'parrot;NQP;Compiler;main' pc 91941 (ext/nqp-rx/src/stage0/NQP-s0.pir:26223)
+	exit status: 256
+	command: "/usr/local/bin/parrot-nqp" --target=pir --output=src/gen_grammar.pir  src/cish/Grammar.pm
+	
+	current instr.: 'setup' pc 885 (runtime/parrot/library/distutils.pir:390)
+
+The error message is similar because NQP is implmenented in terms of
+itself.  The error message is near the top.
+
+Non syntax errors like misspelled subrules or pirops only get caught when
+that section of code is executed.  Misspelled subrules in particular give
+understandable errors:
+
+		  Method 'statementlis' not found for invocant of class 'cish;Grammar'
+
+But incorrect PIR opcodes result in stranger messages:
+
+		  error:imcc:syntax error, unexpected PREG, expecting '(' ('$P13')
+		in file 'EVAL_1' line 8
+	syntax error ... somewhere
+
+If you get an error message talking about `imcc`, you can assume this is an
+error in the generated PIR code and can check the results of code
+generation with the `--target=pir` option.
+
+Comparisons and Logic
+---------------------
+
+While there are a wide variety of clever things that can be done for
+comparisons and logical operators.  For this example, we're going to take
+the most straightforward route.  Parrot has operators that return 1 or 0 if
+a comparison or logical operator are true or false.  This is not only easy
+to deal with, but also much like C.  The entire rest of the expression
+syntax can be added quickly.  The opcodes can be found in [Parrot's
+documentation][opcodes].  The code below can be added to `Grammar.pm`.
+
+		  INIT {
+	    cish::Grammar.O(':prec<s>, :assoc<left>',  '%comparison');
+	    cish::Grammar.O(':prec<r>, :assoc<left>',  '%and');
+	    cish::Grammar.O(':prec<q>, :assoc<left>',  '%or');
+	}
+	
+	token prefix:sym<!> { <sym> <O('%unary, :pirop<not>')> }
+	
+	token infix:sym('<' ) { <sym> <O('%comparison, :pirop<islt IPP>')> }
+	token infix:sym('<=') { <sym> <O('%comparison, :pirop<isle IPP>')> }
+	token infix:sym('==') { <sym> <O('%comparison, :pirop<iseq IPP>')> }
+	token infix:sym('!=') { <sym> <O('%comparison, :pirop<isne IPP>')> }
+	token infix:sym('>=') { <sym> <O('%comparison, :pirop<isge IPP>')> }
+	token infix:sym('>' ) { <sym> <O('%comparison, :pirop<isgt IPP>')> }
+	
+	token infix:sym<&&> { <sym> <O('%and, :pirop<and PPP>')> }
+	token infix:sym<||> { <sym> <O('%or,  :pirop<or  PPP>')> }
+
+The comparisons use a slightly different syntax because the angle brackets
+in the operators conflict with the rule syntax.  The tricky part here is
+the `IPP` and `PPP` after the opcodes.  These are typing information.  They
+mean "Int PMC PMC" and "PMC PMC PMC", respectively.  Opcodes can work on
+different types, and this is how you tell PIR which one you meant.  The
+first type is the result type, the others are the argument types.  The
+types are:
+
+* `I`: Integer
+* `N`: Num (floating point)
+* `S`: String
+* `P`: PMC (object)
+
+Without the type information, you get errors like:
+
+		  The opcode 'iseq_p_p' (iseq<2>) was not found.  Check the type and number of the arguments
+
+With all of this input, you can run arbitrarily complex logical
+expressions.  You can also see that integers work as booleans:
+
+		  $ parrot setup.pir
+	$ ./installable_cish
+	> 1 < 2 && 3 != 4
+	1
+	> 1 < 2 && 3 == 4
+	0
+	> 1 && 0
+	0
+	> 1 || 0
+	1
+
+Ternary Operator
+----------------
+
+The one detail of the EXPR parser that's subtle is how to deal with more
+complex operators.  The standard example is the ternary operator (`cond ?
+true : false`).  EXPR appears to only handle simple operators, but it does
+allow operators to parse arbitrary strings:
+
+		  INIT {
+	    cish::Grammar.O(':prec<p>, :assoc<right>', '%ternary');
+	}
+	
+	token infix:sym<? :> {
+		'?' <EXPR('p')> ':'
+		<O('%ternary, :pasttype<if>, :reducecheck<ternary>')>
+	}
+
+EXPR accepts an argument of the maximum precedence level.  The
+`:reducecheck<ternary>` option calls a function in HLL::Grammar that helps
+organize the match object for the ternary operator.  An `if` PAST type
+checks it's first child and returns either the second or third.  This will
+be used later for the if statement.  Now test it out:
+
+		  $ parrot setup.pir && ./installable_cish 
+	"/usr/local/bin/parrot-nqp" --target=pir --output=src/gen_actions.pir  src/cish/Actions.pm
+	"/usr/local/bin/parrot-nqp" --target=pir --output=src/gen_grammar.pir  src/cish/Grammar.pm
+	"/usr/local/bin/parrot" -o cish/cish.pbc src/cish.pir
+	> 1?2:3;
+	Method 'arity' not found for invocant of class 'Integer'
+	> 
+
+This exposes a flaw in the default language.  The integer parse rule
+returns a raw integer, but several places in PAST expect as PAST node
+instead.  Replacing the `term:sym<integer>` method in the actions fixes
+this problem:
+
+		  method term:sym<integer>($/) {
+		make PAST::Val.new( :value($<integer>.ast) );
+	}
+
+Testing the ternary operator now works:
+
+		  $ parrot setup.pir && ./installable_cish 
+	"/usr/local/bin/parrot-nqp" --target=pir --output=src/gen_actions.pir  src/cish/Actions.pm
+	"/usr/local/bin/parrot" -o cish/cish.pbc src/cish.pir
+	> 1?2:3;
+	2
+	> 0?1:2;
+	2
+	> 
+
+
+Blocks
+------
+
+Before we add more complex control structures, we need to be able to
+execute multiple statements at once.  In C, we do this with a curly-brace
+surrounded `block`:
+
+		  rule statement {
+		<block> | <simple> ';'
+	}
+	
+	rule block { '{' <statement>* '}' }
+
+Most of the work to build the PAST tree is already handled by `past_block`.
+So we just need to add the option in the `statement` action and add a very
+simple `block` method.
+
+		  method statement($/) {
+		if $<block> {
+			make $<block>.ast;
+		} else {
+			make $<simple>.ast;
+		}
+	}
+	
+	method block($/) {
+		make past_block($/, $<statement>);
+	}
+
+Testing:
+
+		  $ parrot setup.pir && ./installable_cish 
+	"/usr/local/bin/parrot-nqp" --target=pir --output=src/gen_actions.pir  src/cish/Actions.pm
+	"/usr/local/bin/parrot" -o cish/cish.pbc src/cish.pir
+	> { say 1; say 2; }
+	1
+	2
+	>
+
+
+
+
+Selection and Repetition
+------------------------
+
+PAST makes generating most common language constructs easy.  Both `if` and
+`while` are PAST::Op types.  This time we will need both grammar and code.
+The grammar (this includes a replacement for `statement`):
+
+		  rule statement {
+		<block> | <control> | <simple> ';'
+	}
+	
+	proto token control { <...> }
+	rule control:sym<while> { <sym> '(' <EXPR> ')' <statement> }
+	rule control:sym<if>    {
+		<sym> '(' <EXPR> ')' <statement> [ : 'else' <statement> ]?
+	}
+
+The most interesting thing here is the colon in the `if` rule.  It is a
+marker to stop the rule engine from backtracking.  This solves the dangling
+else problem as it will prevent the engine from attempting to match the
+else to any other if.  The actions are simple, due to the `if` and `while`
+types of PAST::Op:
+
+		  method control:sym<while>($/) {
+		make PAST::Op.new(
+			$<EXPR>.ast,
+			$<statement>.ast,
+			:pasttype<while>, :node($/)
+		);
+	}
+	
+	method control:sym<if>($/) {
+		my $past := PAST::Op.new( $<EXPR>.ast, :pasttype<if>, :node($/) );
+		for $<statement> { $past.push( $_.ast ); }
+		make $past;
+	}
+
+The for loop in the if action handles attaching the else if it is present.
+Since both the then and else blocks are named `statement`, they are held in
+an array of 0 or 1.  Try it out:
+
+		  $ parrot setup.pir && ./installable_cish 
+	"/usr/local/bin/parrot-nqp" --target=pir --output=src/gen_actions.pir  src/cish/Actions.pm
+	"/usr/local/bin/parrot-nqp" --target=pir --output=src/gen_grammar.pir  src/cish/Grammar.pm
+	> if(1) say 'yes';
+	yes
+	> if(0) say 'yes'; else say 'no';
+	no
+	> if(1) say 1; else if(1) say 2; else say 3;
+	1
+	> if(0) say 1; else if(1) say 2; else say 3;
+	2
+	> if(0) say 1; else if(0) say 2; else say 3;
+	3
+	> while(0) say 1;
+	> while(1) say 'looping';
+	looping
+	looping
+	looping
+	looping
+	looping
+
+You'll probably want to use Ctrl-C to stop the last one.  Loop constructs
+aren't very useful without variables.
+
+Variables
+---------
+
+Variables get more complicated, since you need to attach them to symbol
+table.  PAST::Block gives us a symbol table.  However, at the moment the
+block is not available until after we handle all of it's contents and we'd
+like to access it in the middle.  To solve this, we add a hook to the
+grammar to allow us to set up the block:
+
+		  token begin_block { <?> }
+
+	token TOP {
+		<.begin_block>
+	    <statement>*
+	    [ $ || <.panic: "Syntax error"> ]
+	}
+	
+	rule block {
+		'{'
+			<.begin_block> :
+			<statement>*
+		'}'
+	}
+
+Since blocks might be inside of other blocks, we need to maintain a stack
+of them.  The action for `begin_block` must add a new block and anything
+that returns (via `make`) a block must remove it.  Since we only created
+blocks in one place (`past_block`), that is a natural place to remove them.
+
+		  our @BLOCKS; # @BLOCKS[0] = current scope, 1.. surrounding
+	
+	method begin_block($/) {
+		@BLOCKS.unshift( PAST::Block.new(:blocktype<immediate>, :node($/)) );
+	}
+	
+	sub past_block($/, @statements) {
+		my $past := @BLOCKS.shift();
+		for @statements { $past.push( $_.ast ); }
+		return $past;
+	}
+
+To add variables to the language, we need the grammar to declare, reference
+and assign variables.  Declarations are simple statements (terminated by
+semicolons), references are terms in the expression parser, and assignment
+is an infix operator:
+
+		  rule simple {
+		| <builtin>
+		| <decl>
+		| <EXPR>
+		| <?>
+	}
+	
+	rule decl { <ident> [ '=' <EXPR> ]? }
+	rule decl_list { 'int' <decl> ** ',' }
+	
+	token term:sym<variable> { <ident> }
+
+	INIT {
+		cish::Grammar.O(':prec<o>, :assoc<right>', '%assignment');
+	}
+
+	token infix:sym<=> { <sym> <O('%assignment, :pirop<assign>')> }
+	
+
+With the grammar in place, we must determine the actions for it.  PAST has
+a PAST::Var type for variables.  They have several attributes that are
+useful:
+
+* name
+* scope: determines where the variable can be accessed.  For this language
+  we will only be using lexical scope (current block and all nested
+  blocks).
+* isdecl: boolean set if the variable is being declared
+* lvalue: a variable is an lvalue if it can be on the left side of an
+  assignment
+* viviself: Initialization value
+
+PAST will take care of finding variables in symbol tables, so we don't have
+to do much of anything in the term.  The only trick is that a prefix `~`
+converts an expression to a string, and the string value of the match
+object `$/` is the string it matched.  In this case, the name.
+
+		  method term:sym<variable>($/) {
+		make PAST::Var.new( :name(~$/) );
+	}
+
+Since assignment is an operator, the EXPR parser handles that.  So the
+declarations has all the work.  It must:
+
+1. Check the symbol table for duplicates.
+2. Create a PAST::Var with the appropriate options.
+3. Set the initializer
+4. Add variable to the symbol table
+5. Add declaration to block.
+5. Return variable reference.
+
+		  method decl($/) {
+		my $name := ~$<ident>;
+		my $BLOCK := @BLOCKS[0];
+		if $BLOCK.symbol($name) {
+			$/.CURSOR.panic("Redeclaration of variable ", $name);
+		}
+
+The `panic` line here is the same as `<.panic: "Redeclaration of
+variable">`.  This is how you throw errors from inside action methods.
+
+			  my $past := PAST::Var.new(
+			:name($name), :scope<lexical>, :isdecl(1), :lvalue(1), :node($/)
+		);
+
+This sets all the attributes.
+
+			  $past.viviself( $<EXPR> ?? $<EXPR>.ast !! PAST::Val.new( 0 ) );
+
+Initializers are EXPR, but optional.  Instead of dying when referencing
+uninitialized variables, setting the variable to 0 is simpler. 
+
+			  $BLOCK.symbol($name, :scope<lexical>);
+
+This adds the variable to the block's symbol table, so PAST doesn't try
+outer scopes.
+
+			  $BLOCK.push($past);
+
+This adds the variable declaration **to the beginning of the block**.
+The variable doesn't actually exist before it's declaration and this is the
+simplest way to do it.
+
+			  make PAST::Var.new(:name($name));
+	}
+
+Finally, referencing the variable in the code ensures that it gets
+initialized where we think.
+
+One last piece of connection code must be added: the `simple` action  needs
+to check for a declaration:
+
+		  method simple($/) {
+		if $<builtin> {
+			make $<builtin>.ast
+		} elsif $<decl_list> {
+			make $<decl_list>.ast
+		} elsif $<EXPR> {
+			make $<EXPR>.ast
+		} else {
+			make PAST::Op.new( :inline<noop>, :pasttype<inline>, :node($/) );
+		}
+	}
+
+Now it should run:
+
+		  $ parrot setup.pir && ./installable_cish 
+	"/usr/local/bin/parrot" -o cish/cish.pbc src/cish.pir
+	> int a; say a; a = 1; say a;
+	0
+	1
+	> int a = 10; while(a) { say a; a = a - 1; }
+	10
+	9
+	8
+	7
+	6
+	5
+	4
+	3
+	2
+	1
+	>
+
+Functions
+---------
+
+Functions end up being halfway between blocks and variables.  PAST::Var
+nodes are marked as parameter scope and pushed into the Block, but added to
+the symbol table as lexical scope.  Functions are called via a PAST::Op
+node with pasttype 'call', and return values are set with the return
+opcode.
+
+They were not implemented here due to time constraints, but an example can
+be seen in the [Squaak tutorial][squaak6] on the Parrot web site.
+
+[squaak6]: http://docs.parrot.org/parrot/latest/html/examples/languages/squaak/doc/tutorial_episode_6.pod.html
+
+
+Critique
+========
+
+PCT is fairly easy to install, if you are comfortable with the standard
+configure/compile/install system of many UNIX tools.  That it comes
+standard with Parrot means it will be available on any system that you'd
+want to use it on (since it only generates Parrot bytecode).
+
+It does have some up and down sides:
+
+Pro
+---
+
+* Simplicity of recursive parser, power of Perl regexes, LALR expression
+  parser with flexible defaults.
+* Reasonably easy to build a complex language.  The `cish` grammar and
+  actions are 221 lines.
+* Very portable.  Parrot runs on most available computers.
+* Active community.  Mainly on IRC, very happy for contributions and to
+  provide assistance.
+* Pre-made AST classes that handle code generation.
+
+Neutral
+-------
+
+* Designed for dynamic languages.
+  * There is support for types, but not much.
+  * Staticly typed languages are possible, but not as easy.
+* No actual bytecode generation
+  * Compiles to PIR, which parrot can compile to bytecode.
+
+Con
+---
+
+* Limits of recursive descent, only LALR for single expression language.
+* Backtracking past actions can lead to confusing results
+  * Mainly with rules like `begin_block`
+* Documentation is sparse, somewhat out of date
+  * Usually still usable, just has details wrong.
+  * No single reference, have to refer to many places
+* Despite name of "Parrot Optimized Syntax Tree", it performs little to no
+  optimization.
+* Errors largely occur at runtime and aren't always easy to understand.
+
+[Parrot]: http://parrot.org
+[Perl6]:  http://perl6.org
