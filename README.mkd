@@ -100,7 +100,7 @@ Does this look like assembler?
 	.end
 
 No?  That's how you open and write to a file using the Parrot Intermediate
-Language (PIR).  There is a slightly lower level language called PASM
+Representation (PIR).  There is a slightly lower level language called PASM
 (Parrot Assembly), but human written code is typically in PIR and each of
 those method calls turn into only one or two instructions.
 
@@ -167,7 +167,7 @@ only [Perl 6][rakudo], but also other dynamic languages like
 
 The Parrot Compiler Toolkit has existed in various forms since the
 beginning of the Parrot project and is in very active use by
-[Rakdudo][rakudo], the Perl 6 on Parrot project.
+[Rakudo][rakudo], the Perl 6 on Parrot project.
 
 Using PCT
 =========
@@ -209,7 +209,7 @@ interesting):
   language.
 * `t/`: A file for tests for your language.  Normally a great idea, but
   I'll gloss over this for simplicity.  The test files are supposed to be
-  written in your language and output the [Test Anywhere Protocol][TAP]
+  written in your language and output the [Test Anything Protocol][TAP]
 * `setup.pir`: A PIR program (run with `parrot`) that helps build your
   program.  You can run it with:
   * `build`: (the default) builds your language
@@ -364,7 +364,7 @@ is defined here as a token so that if it reaches the end of your program
 too early, it doesn't go back and try to re-parse your program another way
 (probably a futile effort).
 
-Now for some syntax explination.  I won't go into much depth about the
+Now for some syntax explanation.  I won't go into much depth about the
 grammar language, explaining just enough to move forward at each point.  If
 you're ever more curious, you can check out the [full
 specification][rules].
