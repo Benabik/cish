@@ -80,7 +80,7 @@ get right:
 
 Does this look like assembler?
 
-		  .sub main :main
+	.sub main :main
 		.local string name
 		.local pmc file
 		push_eh file_error # Jump on error
@@ -125,7 +125,7 @@ and the source is available on [Github](http://github.com/parrot/parrot).
 Once you have downloaded and extracted the source, it can be built with two
 simple commands:
 
-		  $ perl Configure.pl
+	$ perl Configure.pl
 	$ make
 
 It does require a C compiler, make  and Perl 5.8 to build from source.  It
@@ -181,7 +181,7 @@ scroll back up to "How do I get it?".  I'll wait.  Back?  Good.  Now, open
 up a shell and run the following: (I'm using cish since that's the name of
 the example I'll use later.)
 
-		  $ perl /usr/lib/parrot/3.0.0/tools/dev/mk_language_shell.pl cish
+	$ perl /usr/lib/parrot/3.0.0/tools/dev/mk_language_shell.pl cish
 
 If that doesn't work, your copy of parrot is probably in a slightly
 different place than mine.  If you're running parrot from the source,
@@ -280,7 +280,7 @@ processes the source.  It accepts the following four options: `parse`,
 which I'll talk about in the next section.  If you're curious, you can run
 each of the following commands and examine the output:
 
-		  $ echo 'say 1+1' > temp
+	$ echo 'say 1+1' > temp
 	$ ./installable_cish --target=parse temp
 	$ ./installable_cish --target=past  temp
 	$ ./installable_cish --target=post  temp
@@ -295,14 +295,14 @@ A REPL is a very common feature of dynamic languages.  Running
 `./installable_cish` without any arguments brings you to a prompt.  Typing
 in any valid code will show you the result immediately:
 
-		  $ ./installable_cish
+	$ ./installable_cish
 	> 1+1
 	2
 	> 'Hello World!'
 	Hello World!
 	> invalid code
 	Syntax error at line 1, near "invalid co"
-		  
+	
 ### Scripting
 
 Given a file and no `--target` argument, it will run the file immediately.
@@ -310,7 +310,7 @@ This is very useful in *nix environments, where starting a file with
 `#!./installable_cish` will start your language with the script as an
 argument.  For example:
 
-		  $ echo '#!./installable_cish` > temp
+	$ echo '#!./installable_cish` > temp
 	$ echo 'say "Hello World!"' >> temp
 	$ chmod o+x temp
 	$ ./temp
@@ -338,7 +338,7 @@ to know here is that NQP will ignore everything between `=begin` and
 
 [POD]: http://search.cpan.org/~zag/Perl6-Pod-0.24/lib/Perl6/Pod.pm
 
-		  grammar cish::Grammar is HLL::Grammar;
+	grammar cish::Grammar is HLL::Grammar;
 
 This defines the grammar, which is actually a class.  In NQP, grammars are
 classes and rules are methods.  If this sounds like this will be a
@@ -352,7 +352,7 @@ It defines useful rules like `integer` (including binary, octal, and hex),
 `dec_number` (floats with scientific notation), and `identifier`.  It
  as provides error handling.
 
-		  token TOP {
+	token TOP {
 	    <statementlist>
 	    [ $ || <.panic: "Syntax error"> ]
 	}
@@ -382,7 +382,7 @@ Parenthesis remember what they matched (an anonymous sub-rule, in a way)
 and square brackets don't.  In this case, it's used to limit the reach of
 the `||` alternation operator.
 
-		  token ws {
+	token ws {
 	    <!ww>
 	    [ '#' \N* \n? | \s+ ]*
 	}
@@ -425,7 +425,7 @@ every repetition.  This rule therefore only requires semicolons between
 statements, not after them.  The quotes match their contents literally,
 which is very useful if you want to match things like `'+'` or `'*'`.
 
-		  proto token statement_control { <...> }
+	proto token statement_control { <...> }
 
 `statement` is rather mundane, but `statement_control` requires some
 attention.  See, I was fibbing slightly when I said there are two kinds of
@@ -438,7 +438,7 @@ forget to include a subrule in a long list of alternations.  (Which is
 useful because NQP won't tell you if you've misspelled a subrule.)
 The `<...>` means match whatever the other rule says.
 
-		  rule statement_control:sym<say>   { <sym> [ <EXPR> ] ** ','  }
+	rule statement_control:sym<say>   { <sym> [ <EXPR> ] ** ','  }
 	rule statement_control:sym<print> { <sym> [ <EXPR> ] ** ','  }
 
 This is the syntax to add rules to a proto.  `<sym>` in the rule matches 
@@ -454,7 +454,7 @@ left recursion, NQP will happily call the same rule over and over again
 until it hits a recursion limit and dies.  So you can't write something
 like this:
 
-		  rule expression { <expression> '+' <expression> | <number> }
+	rule expression { <expression> '+' <expression> | <number> }
 
 But earilier I said that LL parsing is only half the story.  NQP embeds a
 LR parser in the `EXPR` rule, specifically to parse expressions like this.
@@ -462,7 +462,7 @@ It also defines a very flexable series of protos: `circumfix`, `infix`,
 `postfix`, `postcircumfix`, `prefix` and `term`.  The rules fit together
 like this:  (The `...` are the protos you can fill in.)
 
-		  EXPR:       termish ( infix termish )*;
+	EXPR:       termish ( infix termish )*;
 	termish:    prefixish* term postfixish*;
 	prefixish:  prefix ws;
 	postfixish: postfix | postcircumfix;
@@ -477,9 +477,9 @@ like this:  (The `...` are the protos you can fill in.)
 While `infix`, `postfix` and `prefix` are fairly simple to understand, the
 others might need some explanation.  Two have examples in the code:
 
-		  token term:sym<integer> { <integer> } 
+	token term:sym<integer> { <integer> } 
 	token term:sym<quote> { <quote> }
-		  
+	
 `term` is any final expression like variables and literals.
 
 	token circumfix:sym<( )> { '(' <.ws> <EXPR> ')' }
@@ -488,7 +488,7 @@ others might need some explanation.  Two have examples in the code:
 really just a special kind of term.  It's actually defined in the NQP
 source as:
 
-		  proto token circumfix { <...> }
+	proto token circumfix { <...> }
 	token term:sym<circumfix> { <circumfix> }
 
 `postcircumfix` is intended to surround expressions but appear after
@@ -501,7 +501,7 @@ block, which is run when your code is first loaded into the VM.  The other
 is in each operator rule.  Since circumfix operators are a special kind of
 term, they don't need precedence levels.
 
-		  INIT {
+	INIT {
 	    cish::Grammar.O(':prec<u>, :assoc<left>',  '%multiplicative');
 	    cish::Grammar.O(':prec<t>, :assoc<left>',  '%additive');
 	}
@@ -533,7 +533,7 @@ Of them, I could only determine that `:reducecheck<`*method*`>` will call
 *method* when determining if the grammar should reduce at that point, but I
 can't tell how it's supposed to influence the result at all.)
 
-		  token infix:sym<*>  { <sym> <O('%multiplicative, :pirop<mul>')> }
+	token infix:sym<*>  { <sym> <O('%multiplicative, :pirop<mul>')> }
 
 The settings for each operator generally very simple, they first parse
 their symbol, then include the settings for the operator.
@@ -550,7 +550,7 @@ Parse Output
 With the grammar explained, we can see what it produces with some basic
 output:
 
-		  $ ./installable_cish --target=parse
+	$ ./installable_cish --target=parse
 	> say 1+1
 	"parse" => PMC 'Regex;Match' => "say 1+1\n" @ 0 {
 	    <statementlist> => PMC 'Regex;Match' => "say 1+1\n" @ 0 {
@@ -594,14 +594,14 @@ That's a lot of output, but it's simple to understand if you take it piece
 by piece.  First thing to understand is that the output is a tree, which
 we'd expect to have the following format: (Pardon the ASCII art)
 
-		  say
+	say
 	\- +
 	 |- 1
 	 \- 1
 
 So the top level is 
 
-		  "parse" => PMC 'Regex;Match' => "say 1+1\n" @ 0 {
+	"parse" => PMC 'Regex;Match' => "say 1+1\n" @ 0 {
 	    <statementlist> => PMC 'Regex;Match' => "say 1+1\n" @ 0 {
 	        <statement> => ResizablePMCArray (size:1) [
 	        	...
@@ -623,7 +623,7 @@ statements.  If a subrule is matched multiple times, it is naturally stored
 as an array.
 
 
-		  PMC 'Regex;Match' => "say 1+1\n" @ 0 {
+	PMC 'Regex;Match' => "say 1+1\n" @ 0 {
 	    <statement_control> => PMC 'Regex;Match' => "say 1+1\n" @ 0 {
 	        <EXPR> => ResizablePMCArray (size:1) [
 	            PMC 'Regex;Match' => "+" @ 5 {
@@ -662,7 +662,7 @@ match object are easily available as `$<`*name*`>` for a subrule *name*.
 
 [PDD26]: http://docs.parrot.org/parrot/latest/html/docs/pdds/pdd26_ast.pod.html
 
-		  class cish::Actions is HLL::Actions;
+	class cish::Actions is HLL::Actions;
 
 This defines the file to hold a class derived from HLL::Actions.  I'm
 actually going to start discussing the most important thing in
@@ -675,7 +675,7 @@ list of types, see [PDD26][PDD26].  The final way is to define a OPER
 method on your actions class, and EXPR will push the operands onto whatever
 AST object you return.
 
-		  method TOP($/) {
+	method TOP($/) {
 	    make PAST::Block.new( $<statementlist>.ast , :hll<cish>, :node($/) );
 	}
 
@@ -687,7 +687,7 @@ top-level scope, so TOP creates one.  All PAST nodes take an argument named
 `:node`, which takes the match object so PAST knows the location and text
 from the source.
 
-		  method statementlist($/) {
+	method statementlist($/) {
 	    my $past := PAST::Stmts.new( :node($/) );
 	    for $<statement> { $past.push( $_.ast ); }
 	    make $past;
@@ -698,7 +698,7 @@ and then attaches a variable number of sub-nodes to it.  NQP's for loop
 takes an array and sets `$_` to each element in turn.  `PAST::Stmts` is a
 node that that executes the nodes pushed onto it in turn.
 
-		  method statement($/) {
+	method statement($/) {
 	    make $<statement_control> ?? $<statement_control>.ast !! $<EXPR>.ast;
 	}
 
@@ -719,7 +719,7 @@ The basic format is identical to the parse output, but this uses PAST node
 types instead of Regex::Match.  It's also far more compact since it doesn't
 have to carry around the state for every single rule.
 
-		  $ ./installable_cish --target=past
+	$ ./installable_cish --target=past
 	> say 1+1
 	"past" => PMC 'PAST;Block'  {
 	    <hll> => "cish"
@@ -754,7 +754,7 @@ built, PCT knows how to generate POST nodes and PIR code from it.  I don't
 find POST particularly enlightening, but the PIR for our test line of code
 is simple enough.  If you wish to see the POST nodes, use `--target=post`.
 
-		  $ ./installable_cish --target=pir
+	$ ./installable_cish --target=pir
 	> say 1+1
 	
 	.HLL "cish"
@@ -788,7 +788,7 @@ be enough to demonstrate both the features and power of PCT.
 I will call it C-ish or `cish` for short (which is why I suggested that
 name earlier).  The grammar for it is as follows:
 
-		  number  = "\d+";
+	number  = "\d+";
 	ident   = "[_a-zA-Z][_a-zA-Z0-9]*";
 	comment = "/\* .* \*/";
 
@@ -845,7 +845,7 @@ While the default language is powerful, it's not C-like.  We'll start of
 with several tweaks to the grammar.  First, the comment style isn't what we
 want.  The fix for that is to change the `ws` rule:
 
-		  # This <ws> rule treats /* this as a comment */
+	# This <ws> rule treats /* this as a comment */
 	token ws {
 	    <!ww>
 	    [ '/*' .*? '*/' | \s+ ]*
@@ -855,7 +855,7 @@ Next, we'll do a little reorganization.  We're removing the old statement
 list and replacing it with a simple statement that must end with a
 semicolon.  Replace `TOP`, `statementlist` and `statement` in the grammar:
 
-		  token TOP {
+	token TOP {
 	    <statement>*
 	    [ $ || <.panic: "Syntax error"> ]
 	}
@@ -875,7 +875,7 @@ do something similar in `block` later, so we make it a function (called a
 `sub` in NQP).  Also, the handling of different types of `statement` moves
 down into `simple`.
 
-		  sub past_block($/, @statements) {
+	sub past_block($/, @statements) {
 		my $past := PAST::Block.new( $past, :blocktype<immediate>, :node($/) );
 		for @statements { $past.push( $_.ast ); }
 		return $past;
@@ -911,7 +911,7 @@ Empty Statements
 At the moment, `cish` doesn't allow empty statements.  It's simple to add
 to the grammar:
 
-		  rule simple {
+	rule simple {
 		| <builtin>
 		| <EXPR>
 		| <?>
@@ -921,7 +921,7 @@ It's not as simple to add to the actions.  The "best" way to do it is to
 generate nothing, but this can result in empty blocks later and PAST
 doesn't handle that very well.  So instead, we'll generate a `noop` opcode:
 
-		  method simple($/) {
+	method simple($/) {
 		if $<builtin> {
 			make $<builtin>.ast
 		} elsif $<EXPR> {
@@ -941,7 +941,7 @@ mathematical operators: unary minus and modulus.  First, we need an
 additional precedence level so we need to add it in an INIT block.  You can
 either have multiple INIT blocks, or merge them all into one.
 
-		  INIT {
+	INIT {
 	    cish::Grammar.O(':prec<v>, :assoc<unary>',  '%unary');
 	}
 
@@ -953,7 +953,7 @@ Note that the positioning doesn't matter, but it's convenient if you add it
 between `circumfix:sym<( )>` and `infix:sym<%>`.  After adding these, head
 to the top-level 'cish' directory and try the following:
 
-		  $ parrot setup.pir
+	$ parrot setup.pir
 	$ ./installable_cish
 	> -1
 	-1
@@ -971,7 +971,7 @@ Now is a good time to discuss error handling.  There are two levels of
 error handling in question: user errors and programmer errors.  User errors
 are handled very generically by default:
 
-		  > bogus input
+	> bogus input
 	Syntax error at line 1, near "bogus inpu"
 
 It at the very least, it does describe the line number and section of
@@ -980,13 +980,13 @@ about where in the grammar this error happened.  This may improve with
 time, but currently that's all you get.  If you catch a parse error using
 something like `<.panic: "error message">`, you'll get:
 
-		  > bogus input
+	> bogus input
 	error message at line 1, near "bogus inpu"
 
 At the programming end, the error messages are similar, but end up buried
 in backtrace:
 
-		  $ parrot setup.pir
+	$ parrot setup.pir
 	"/usr/local/bin/parrot-nqp" --target=pir --output=src/gen_grammar.pir  src/cish/Grammar.pm
 	Confused at line 1, near "bogus inpu"
 	current instr.: 'parrot;HLL;Grammar;panic' pc 635 (ext/nqp-rx/src/stage0/HLL-s0.pir:421)
@@ -1011,11 +1011,11 @@ Non syntax errors like misspelled subrules or pirops only get caught when
 that section of code is executed.  Misspelled subrules in particular give
 understandable errors:
 
-		  Method 'statementlis' not found for invocant of class 'cish;Grammar'
+	Method 'statementlis' not found for invocant of class 'cish;Grammar'
 
 But incorrect PIR opcodes result in stranger messages:
 
-		  error:imcc:syntax error, unexpected PREG, expecting '(' ('$P13')
+	error:imcc:syntax error, unexpected PREG, expecting '(' ('$P13')
 		in file 'EVAL_1' line 8
 	syntax error ... somewhere
 
@@ -1034,7 +1034,7 @@ to deal with, but also much like C.  The entire rest of the expression
 syntax can be added quickly.  The opcodes can be found in [Parrot's
 documentation][opcodes].  The code below can be added to `Grammar.pm`.
 
-		  INIT {
+	INIT {
 	    cish::Grammar.O(':prec<s>, :assoc<left>',  '%comparison');
 	    cish::Grammar.O(':prec<r>, :assoc<left>',  '%and');
 	    cish::Grammar.O(':prec<q>, :assoc<left>',  '%or');
@@ -1067,12 +1067,12 @@ types are:
 
 Without the type information, you get errors like:
 
-		  The opcode 'iseq_p_p' (iseq<2>) was not found.  Check the type and number of the arguments
+	The opcode 'iseq_p_p' (iseq<2>) was not found.  Check the type and number of the arguments
 
 With all of this input, you can run arbitrarily complex logical
 expressions.  You can also see that integers work as booleans:
 
-		  $ parrot setup.pir
+	$ parrot setup.pir
 	$ ./installable_cish
 	> 1 < 2 && 3 != 4
 	1
@@ -1091,7 +1091,7 @@ complex operators.  The standard example is the ternary operator (`cond ?
 true : false`).  EXPR appears to only handle simple operators, but it does
 allow operators to parse arbitrary strings:
 
-		  INIT {
+	INIT {
 	    cish::Grammar.O(':prec<p>, :assoc<right>', '%ternary');
 	}
 	
@@ -1106,7 +1106,7 @@ organize the match object for the ternary operator.  An `if` PAST type
 checks it's first child and returns either the second or third.  This will
 be used later for the if statement.  Now test it out:
 
-		  $ parrot setup.pir && ./installable_cish 
+	$ parrot setup.pir && ./installable_cish 
 	"/usr/local/bin/parrot-nqp" --target=pir --output=src/gen_actions.pir  src/cish/Actions.pm
 	"/usr/local/bin/parrot-nqp" --target=pir --output=src/gen_grammar.pir  src/cish/Grammar.pm
 	"/usr/local/bin/parrot" -o cish/cish.pbc src/cish.pir
@@ -1119,13 +1119,13 @@ returns a raw integer, but several places in PAST expect as PAST node
 instead.  Replacing the `term:sym<integer>` method in the actions fixes
 this problem:
 
-		  method term:sym<integer>($/) {
+	method term:sym<integer>($/) {
 		make PAST::Val.new( :value($<integer>.ast) );
 	}
 
 Testing the ternary operator now works:
 
-		  $ parrot setup.pir && ./installable_cish 
+	$ parrot setup.pir && ./installable_cish 
 	"/usr/local/bin/parrot-nqp" --target=pir --output=src/gen_actions.pir  src/cish/Actions.pm
 	"/usr/local/bin/parrot" -o cish/cish.pbc src/cish.pir
 	> 1?2:3;
@@ -1142,7 +1142,7 @@ Before we add more complex control structures, we need to be able to
 execute multiple statements at once.  In C, we do this with a curly-brace
 surrounded `block`:
 
-		  rule statement {
+	rule statement {
 		<block> | <simple> ';'
 	}
 	
@@ -1152,7 +1152,7 @@ Most of the work to build the PAST tree is already handled by `past_block`.
 So we just need to add the option in the `statement` action and add a very
 simple `block` method.
 
-		  method statement($/) {
+	method statement($/) {
 		if $<block> {
 			make $<block>.ast;
 		} else {
@@ -1166,7 +1166,7 @@ simple `block` method.
 
 Testing:
 
-		  $ parrot setup.pir && ./installable_cish 
+	$ parrot setup.pir && ./installable_cish 
 	"/usr/local/bin/parrot-nqp" --target=pir --output=src/gen_actions.pir  src/cish/Actions.pm
 	"/usr/local/bin/parrot" -o cish/cish.pbc src/cish.pir
 	> { say 1; say 2; }
@@ -1184,7 +1184,7 @@ PAST makes generating most common language constructs easy.  Both `if` and
 `while` are PAST::Op types.  This time we will need both grammar and code.
 The grammar (this includes a replacement for `statement`):
 
-		  rule statement {
+	rule statement {
 		<block> | <control> | <simple> ';'
 	}
 	
@@ -1200,7 +1200,7 @@ else problem as it will prevent the engine from attempting to match the
 else to any other if.  The actions are simple, due to the `if` and `while`
 types of PAST::Op:
 
-		  method control:sym<while>($/) {
+	method control:sym<while>($/) {
 		make PAST::Op.new(
 			$<EXPR>.ast,
 			$<statement>.ast,
@@ -1218,7 +1218,7 @@ The for loop in the if action handles attaching the else if it is present.
 Since both the then and else blocks are named `statement`, they are held in
 an array of 0 or 1.  Try it out:
 
-		  $ parrot setup.pir && ./installable_cish 
+	$ parrot setup.pir && ./installable_cish 
 	"/usr/local/bin/parrot-nqp" --target=pir --output=src/gen_actions.pir  src/cish/Actions.pm
 	"/usr/local/bin/parrot-nqp" --target=pir --output=src/gen_grammar.pir  src/cish/Grammar.pm
 	> if(1) say 'yes';
@@ -1251,7 +1251,7 @@ block is not available until after we handle all of it's contents and we'd
 like to access it in the middle.  To solve this, we add a hook to the
 grammar to allow us to set up the block:
 
-		  token begin_block { <?> }
+	token begin_block { <?> }
 
 	token TOP {
 		<.begin_block>
@@ -1271,7 +1271,7 @@ of them.  The action for `begin_block` must add a new block and anything
 that returns (via `make`) a block must remove it.  Since we only created
 blocks in one place (`past_block`), that is a natural place to remove them.
 
-		  our @BLOCKS; # @BLOCKS[0] = current scope, 1.. surrounding
+	our @BLOCKS; # @BLOCKS[0] = current scope, 1.. surrounding
 	
 	method begin_block($/) {
 		@BLOCKS.unshift( PAST::Block.new(:blocktype<immediate>, :node($/)) );
@@ -1288,7 +1288,7 @@ and assign variables.  Declarations are simple statements (terminated by
 semicolons), references are terms in the expression parser, and assignment
 is an infix operator:
 
-		  rule simple {
+	rule simple {
 		| <builtin>
 		| <decl>
 		| <EXPR>
@@ -1325,7 +1325,7 @@ to do much of anything in the term.  The only trick is that a prefix `~`
 converts an expression to a string, and the string value of the match
 object `$/` is the string it matched.  In this case, the name.
 
-		  method term:sym<variable>($/) {
+	method term:sym<variable>($/) {
 		make PAST::Var.new( :name(~$/) );
 	}
 
@@ -1339,7 +1339,7 @@ declarations has all the work.  It must:
 5. Add declaration to block.
 5. Return variable reference.
 
-		  method decl($/) {
+	method decl($/) {
 		my $name := ~$<ident>;
 		my $BLOCK := @BLOCKS[0];
 		if $BLOCK.symbol($name) {
@@ -1380,7 +1380,7 @@ initialized where we think.
 One last piece of connection code must be added: the `simple` action  needs
 to check for a declaration:
 
-		  method simple($/) {
+	method simple($/) {
 		if $<builtin> {
 			make $<builtin>.ast
 		} elsif $<decl_list> {
@@ -1394,7 +1394,7 @@ to check for a declaration:
 
 Now it should run:
 
-		  $ parrot setup.pir && ./installable_cish 
+	$ parrot setup.pir && ./installable_cish 
 	"/usr/local/bin/parrot" -o cish/cish.pbc src/cish.pir
 	> int a; say a; a = 1; say a;
 	0
