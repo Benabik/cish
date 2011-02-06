@@ -1,5 +1,3 @@
-This language exists as a demonstration.  See overview.mkd.
-
 Language 'cish' was created with /usr/local/lib/parrot/3.0.0-devel/tools/dev/mk_language_shell.pl, r$Revision$.
 
     $ parrot setup.pir
