@@ -15,10 +15,10 @@ Makes building a language on Parrot simple.
 No, really.  PCT provides a powerful parsing language using [Perl 6
 rules][rules], the new and improved version of the ever popular Perl regex.
 It also provides a pre-made abstract syntax tree (AST) library, creatively
-named Parrot AST or PAST.  It then optimizes your AST into a Parrot
-Optimized Syntax Tree (POST), which itself compiles into bytecode.  And it
-lets you control all of this with a language which is almost, but Not Quite
-Perl (NQP).
+named Parrot AST or PAST.  It then converts your AST into a Parrot
+Opcode Syntax Tree (POST), which itself compiles into Parrot Intermediate
+Representation (PIR).  And it lets you control all of this with a language
+which is almost, but Not Quite Perl (NQP).
 
 [rules]: http://perlcabal.org/syn/S05.html "Synopsis 5: Regexes and Rules"
 
@@ -1457,6 +1457,10 @@ Neutral
   * Staticly typed languages are possible, but not as easy.
 * No actual bytecode generation
   * Compiles to PIR, which parrot can compile to bytecode.
+* Code generation not optimized
+  * But it can be: [tree-optimization library][tree-op]
+
+[tree-op]: https://github.com/parrot/tree-optimization
 
 Con
 ---
@@ -1467,8 +1471,6 @@ Con
 * Documentation is sparse, somewhat out of date
   * Usually still usable, just has details wrong.
   * No single reference, have to refer to many places
-* Despite name of "Parrot Optimized Syntax Tree", it performs little to no
-  optimization.
 * Errors largely occur at runtime and aren't always easy to understand.
 
 [Parrot]: http://parrot.org
