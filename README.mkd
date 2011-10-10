@@ -405,7 +405,7 @@ whichever side matches more text (longest token matching) and a double bar
 will try the second side only if the first fails.
 
 The backslash escaped letters represent character classes.  These will be
-familiar to you if you know Perl 5 regexes.  `\n` is newline and '\N' is
+familiar to you if you know Perl 5 regexes.  `\n` is newline and `\N` is
 *not* a newline, which makes the left half of the alternation match a
 comment until end of line.  `\s` represents any whitespace character such
 as spaces, tabs, and newlines.
@@ -415,7 +415,7 @@ token optional (0 or 1 times), `*` matches zero or more times, while `+`
 matches at least once but possibly more.  The last star applies to the
 entire group, while the others are attached to a single character.
 
-		rule statementlist { [ <statement> | <?> ] ** ';' }
+	rule statementlist { [ <statement> | <?> ] ** ';' }
 
 `statementlist` is, as you might expect, a list of statements.  Because it
 is defined as a standard rule, whitespace (as defined by `ws`) can appear
@@ -513,7 +513,7 @@ term, they don't need precedence levels.
 Each level is defined by a call to the `O` method on your grammar.  (It's
 part of HLL::Grammar.)  It takes two stings as arguments.  The first
 defines the settings for a precedence level and the second gives it a name
-which is used later in the rules.  These names should start with a `%`, as
+which is used later in the rules.  These names should start with `%`, as
 they may be implemented with actual hashes at some point.
 
 There are two settings that affect parsing for a level: precedence and
@@ -1342,6 +1342,8 @@ declarations has all the work.  It must:
 4. Add variable to the symbol table
 5. Add declaration to block.
 5. Return variable reference.
+
+This is all done from within the decl method on your actions.
 
 	method decl($/) {
 		my $name := ~$<ident>;
